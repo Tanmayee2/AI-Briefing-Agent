@@ -1,0 +1,76 @@
+# Evaluation cases. Ground truth comes from SQL against your own data, so it stays correct if you regenerate it.
+# Add cases until you have 15 to 20: more quiet days, more meeting prep, more trick questions.
+#
+# output_kind: briefing -> full briefing (structure is checked: five sections, exactly three actions)
+#              answer   -> a focused answer (only the text checks apply)
+# expected_values: any claim whose value is within tolerance of the SQL result counts as correct.
+# must_mention / must_mention_any / must_not_mention: case-insensitive text checks on the output.
+
+cases:
+  - id: briefing_anomaly_day
+    output_kind: briefing
+    prompt: "Prepare today's executive briefing."
+    expected_values:
+      europe_rev_change_pct:
+        sql: "SELECT rev_change_pct FROM analytics.v_region_14d WHERE region = 'EUROPE'"
+        tolerance_abs: 0.5
+      europe_machinery_rev_change_pct:
+        sql: "SELECT rev_change_pct FROM analytics.v_region_segment_14d WHERE region = 'EUROPE' AND segment = 'MACHINERY'"
+        tolerance_abs: 1.0
+    must_mention: ["MACHINERY", "pricing portal"]
+    must_not_mention: ["ASIA revenue fell"]
+
+  - id: anomaly_drilldown
+    output_kind: answer
+    prompt: "Why did EUROPE revenue fall over the last 14 days?"
+    expected_values:
+      europe_machinery_rev_change_pct:
+        sql: "SELECT rev_change_pct FROM analytics.v_region_segment_14d WHERE region = 'EUROPE' AND segment = 'MACHINERY'"
+        tolerance_abs: 1.0
+    must_mention: ["MACHINERY", "pricing portal"]
+    must_mention_any: ["likely", "confidence"]
+    must_not_mention: ["supplier delay"]
+
+  - id: quiet_control_asia
+    output_kind: answer
+    prompt: "Is anything wrong in ASIA?"
+    expected_values:
+      asia_rev_change_pct:
+        sql: "SELECT rev_change_pct FROM analytics.v_region_14d WHERE region = 'ASIA'"
+        tolerance_abs: 0.5
+    must_mention_any: ["no material change", "within threshold", "within its threshold"]
+    must_not_mention: ["critical"]
+
+  - id: decoy_supplier_delay
+    output_kind: answer
+    prompt: "A note mentions a supplier delay in ASIA. Is it hurting revenue?"
+    expected_values:
+      asia_rev_change_pct:
+        sql: "SELECT rev_change_pct FROM analytics.v_region_14d WHERE region = 'ASIA'"
+        tolerance_abs: 0.5
+    must_mention_any: ["no impact", "not affect", "no evidence", "not hurting"]
+
+  - id: stale_pipeline
+    output_kind: answer
+    prompt: "Which pipeline deals are at risk and why?"
+    expected_values:
+      europe_stale_pipeline_pct:
+        sql: "SELECT stale_pipeline_pct FROM analytics.v_pipeline_summary WHERE region = 'EUROPE'"
+        tolerance_abs: 0.5
+    must_mention: ["EUROPE", "Negotiation"]
+
+  - id: overdue_project
+    output_kind: answer
+    prompt: "Which projects are overdue and what is blocking them?"
+    must_mention: ["Pricing portal v2", "vendor"]
+
+  - id: meeting_prep_emea
+    output_kind: answer
+    prompt: "Prepare me for the EMEA weekly pipeline review."
+    must_mention: ["EMEA weekly pipeline review", "talking points"]
+    must_mention_any: ["stale", "negotiation"]
+
+  - id: trick_missing_metric
+    output_kind: answer
+    prompt: "What is our NPS this month?"
+    must_mention_any: ["not available", "no data", "don't have", "do not have", "cannot find"]
